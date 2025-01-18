@@ -12,18 +12,19 @@ import (
 func AddUserRoutes(server *gin.Engine) {
 	log.Println("Adding user routes")
 
-	server.POST("/users", controller.RegisterUser)
+	server.POST("/user", controller.RegisterUser)
 	server.POST("/login", controller.LoginUser)
 
-	userGroup := server.Group("/")
+	userGroup := server.Group("/user")
 
 	log.Println("Adding authentication middleware")
 	userGroup.Use(middleware.AuthMiddleware)
 	{
 
-		userGroup.GET("/users/:id", controller.GetUsers)
-		userGroup.PUT("/user", controller.UpdateUser)
-		userGroup.PATCH("/user", controller.PatchUser)
-		userGroup.DELETE("/user", controller.DeleteUser)
+		userGroup.GET("/:emailId", controller.GetUsers)
+		userGroup.PUT("/:emailId", controller.UpdateUser)
+		userGroup.PATCH("/:emailId", controller.PatchUser)
+		userGroup.DELETE("/:emailId", controller.DeleteUser)
+		userGroup.DELETE("/logout/:emailId", controller.LogoutUser)
 	}
 }

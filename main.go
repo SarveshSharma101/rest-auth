@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"rest-auth/DB"
 	"rest-auth/routes"
 	"rest-auth/utils"
 
@@ -14,6 +15,11 @@ import (
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
+	}
+
+	err := DB.ConnectToDB()
+	if err != nil {
+		log.Fatal("Error while connecting to DB", err)
 	}
 
 	server := gin.Default()

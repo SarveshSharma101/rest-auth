@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"log"
 	"os"
 
@@ -28,14 +29,19 @@ func Decrypt(cypherText string) (string, error) {
 		return data, err
 	}
 
-	key, err := x509.ParsePKCS1PrivateKey(privateKeyPem.Bytes)
+	key, err := x509.ParsePKCS8PrivateKey(privateKeyPem.Bytes)
 	if err != nil {
 		return data, err
 	}
 
+	pvtKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return data, fmt.Errorf("not a valid private key")
+	}
 	log.Println("Decrypting data")
-	dataByte, err := rsa.DecryptOAEP(sha256.New(), nil, key, []byte(cypherText), nil)
+	dataByte, err := rsa.DecryptOAEP(sha256.New(), nil, pvtKey, []byte(cypherText), nil)
 	if err != nil {
+		fmt.Println("--->", err)
 		return data, err
 	}
 
@@ -47,9 +53,10 @@ func Decrypt(cypherText string) (string, error) {
 	return data, nil
 }
 
-func HashPassword(pwd string) ([]byte, error) {
+func HashPassword(pwd string) (string, error) {
 	log.Println("Hashing password")
-	return bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+	hashPwd, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+	return string(hashPwd), err
 }
 
 func ComparePasswordHash(hash, pwd string) bool {
