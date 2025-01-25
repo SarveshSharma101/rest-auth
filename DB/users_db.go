@@ -2,6 +2,7 @@ package DB
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"rest-auth/datamodel"
 	"rest-auth/utils"
@@ -10,15 +11,12 @@ import (
 )
 
 // GetUsers gets all the users from the database
-func (db *DB) GetUsers(emailId string) ([]datamodel.User, error) {
+func (db *DB) GetUsers() ([]datamodel.User, error) {
 	var users []datamodel.User
-	filter := bson.D{}
-	if emailId != "" {
-		filter = bson.D{{Key: "email", Value: emailId}}
-	}
+
 	cur, err := db.Client.Database(db.DBName).
 		Collection(os.Getenv(utils.USERS_COLLECTION)).
-		Find(context.TODO(), filter)
+		Find(context.TODO(), bson.D{})
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +52,9 @@ func (db *DB) DeleteUser(email string) (int, error) {
 }
 
 func (db *DB) UpdateUser(emailId string, user *datamodel.User) (int64, error) {
-	count, err := db.Client.Database(db.DBName).Collection(os.Getenv(utils.USERS_COLLECTION)).UpdateOne(context.TODO(), bson.D{{Key: "email", Value: emailId}}, user)
+	count, err := db.Client.Database(db.DBName).Collection(os.Getenv(utils.USERS_COLLECTION)).ReplaceOne(context.TODO(), bson.D{{Key: "email", Value: emailId}}, user)
+	fmt.Println("--->", count)
+	fmt.Println("--->", err)
 	return count.ModifiedCount, err
 }
 

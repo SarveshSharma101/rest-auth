@@ -22,9 +22,14 @@ func AddUserRoutes(server *gin.Engine) {
 	{
 
 		userGroup.GET("/:emailId", controller.GetUsers)
+		userGroup.GET("/", controller.GetUsers)
+		userGroup.DELETE("/logout/:emailId", controller.LogoutUser)
+	}
+
+	userGroup.Use(middleware.UpdateAuthMiddleware)
+	{
 		userGroup.PUT("/:emailId", controller.UpdateUser)
 		userGroup.PATCH("/:emailId", controller.PatchUser)
 		userGroup.DELETE("/:emailId", controller.DeleteUser)
-		userGroup.DELETE("/logout/:emailId", controller.LogoutUser)
 	}
 }

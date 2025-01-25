@@ -12,8 +12,21 @@ import (
 
 func GetUsers(ctx *gin.Context) {
 	emailId := ctx.Param("emailId")
+	if emailId != "" {
+		user, err := DB.Db.GetUserByEmail(emailId)
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				ctx.JSON(http.StatusNotFound, gin.H{"error": "No users found"})
+				return
 
-	users, err := DB.Db.GetUsers(emailId)
+			}
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"user": user})
+		return
+	}
+	users, err := DB.Db.GetUsers()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "No users found"})
@@ -24,7 +37,6 @@ func GetUsers(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"users": users})
-	return
 
 }
 
@@ -171,6 +183,7 @@ func PatchUser(ctx *gin.Context) {
 			return
 		}
 	}
+	ctx.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 
 }
 
@@ -188,7 +201,10 @@ func DeleteUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-
+	if err := DB.Db.DeleteSession(email); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 
 }
