@@ -2,11 +2,13 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"rest-auth/DB"
 	"rest-auth/cache"
 	"rest-auth/datamodel"
 	"rest-auth/utils"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -17,16 +19,21 @@ func GetUsers(ctx *gin.Context) {
 	emailId := ctx.Param("emailId")
 	if emailId != "" {
 		value, err := cache.GetValues(emailId)
+		fmt.Println("------------------------")
 		switch err {
 		case nil:
-			err := json.Unmarshal([]byte(value), &datamodel.User{})
+			fmt.Println("----entering nil")
+			user := &datamodel.User{}
+			err := json.Unmarshal([]byte(value), user)
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			ctx.JSON(http.StatusOK, gin.H{"user": value})
+			ctx.JSON(http.StatusOK, gin.H{"user": user})
 			return
 		case redis.Nil:
+			fmt.Println("----entering redis nil")
+
 			user, err := DB.Db.GetUserByEmail(emailId)
 			if err != nil {
 				if err == mongo.ErrNoDocuments {
@@ -42,10 +49,11 @@ func GetUsers(ctx *gin.Context) {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			cache.SetValues(emailId, string(userByte), 3600)
+			cache.SetValues(emailId, string(userByte), 3*time.Second)
 			ctx.JSON(http.StatusOK, gin.H{"user": user})
 			return
 		default:
+			fmt.Println("----entering default")
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -135,8 +143,13 @@ func LoginUser(c *gin.Context) {
 	}
 
 	sessionId := utils.GenerateSessionId()
-	session := &datamodel.Session{SessionId: sessionId, Email: login.Email}
-	err = DB.Db.InsertSession(session)
+	// session := &datamodel.Session{SessionId: sessionId, Email: login.Email}
+	// err = DB.Db.InsertSession(session)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 	return
+	// }
+	err = cache.SetValues(sessionId, login.Email, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -212,6 +225,11 @@ func PatchUser(ctx *gin.Context) {
 }
 
 func DeleteUser(ctx *gin.Context) {
+	sessionId, err := ctx.Cookie("session_id")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+		return
+	}
 	email := ctx.Param("emailId")
 	if email == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Email is required in the path"})
@@ -225,24 +243,34 @@ func DeleteUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	if err := DB.Db.DeleteSession(email); err != nil {
+
+	// if err := DB.Db.DeleteSession(email); err != nil {
+	// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 	return
+	// }
+	if err := cache.DeleteValues(sessionId); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	ctx.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 
 }
 
 func LogoutUser(c *gin.Context) {
-	email := c.Param("emailId")
-	if email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
-	}
-
-	if err := DB.Db.DeleteSession(email); err != nil && err != mongo.ErrNoDocuments {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	sessionId, err := c.Cookie("session_id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
 		return
 	}
 
+	// if err := DB.Db.DeleteSession(email); err != nil && err != mongo.ErrNoDocuments {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 	return
+	// }
+	if err := cache.DeleteValues(sessionId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "User logged out successfully"})
 }
