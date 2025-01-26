@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"rest-auth/DB"
+	"rest-auth/cache"
 	"rest-auth/routes"
 	"rest-auth/utils"
 
@@ -20,6 +21,11 @@ func main() {
 	err := DB.ConnectToDB()
 	if err != nil {
 		log.Fatal("Error while connecting to DB", err)
+	}
+
+	err = cache.InitCacheClient()
+	if err != nil {
+		log.Fatal("Error while connecting to cache", err)
 	}
 
 	server := gin.Default()

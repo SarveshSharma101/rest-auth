@@ -1,30 +1,54 @@
 package controller
 
 import (
+	"encoding/json"
 	"net/http"
 	"rest-auth/DB"
+	"rest-auth/cache"
 	"rest-auth/datamodel"
 	"rest-auth/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func GetUsers(ctx *gin.Context) {
 	emailId := ctx.Param("emailId")
 	if emailId != "" {
-		user, err := DB.Db.GetUserByEmail(emailId)
-		if err != nil {
-			if err == mongo.ErrNoDocuments {
-				ctx.JSON(http.StatusNotFound, gin.H{"error": "No users found"})
+		value, err := cache.GetValues(emailId)
+		switch err {
+		case nil:
+			err := json.Unmarshal([]byte(value), &datamodel.User{})
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
-
 			}
+			ctx.JSON(http.StatusOK, gin.H{"user": value})
+			return
+		case redis.Nil:
+			user, err := DB.Db.GetUserByEmail(emailId)
+			if err != nil {
+				if err == mongo.ErrNoDocuments {
+					ctx.JSON(http.StatusNotFound, gin.H{"error": "No users found"})
+					return
+
+				}
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			userByte, err := json.Marshal(user)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			cache.SetValues(emailId, string(userByte), 3600)
+			ctx.JSON(http.StatusOK, gin.H{"user": user})
+			return
+		default:
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		ctx.JSON(http.StatusOK, gin.H{"user": user})
-		return
 	}
 	users, err := DB.Db.GetUsers()
 	if err != nil {

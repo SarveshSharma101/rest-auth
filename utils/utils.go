@@ -48,3 +48,7 @@ func GenerateSessionId() string {
 	log.Println("Generating session id")
 	return uuid.New().String()
 }
+
+func Getenv(name string) string {
+	return os.Getenv(name)
+}
